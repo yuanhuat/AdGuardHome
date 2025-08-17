@@ -10,11 +10,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # 定义镜像名称相关变量
-      DOCKERHUB_USERNAME: your-dockerhub-username
-      IMAGE_NAME: your-image-name
-      # 生成基于时间戳的唯一标签
+      # 引用GitHub仓库中设置的变量
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      # 动态生成标签
       IMAGE_TAG: ${{ github.sha }}-${{ github.run_number }}
+      # Dockerfile所在路径
+      DOCKERFILE_PATH: docker/Dockerfile
 
     steps:
     - uses: actions/checkout@v4
@@ -22,7 +24,7 @@ jobs:
     - name: Build the Docker image
       run: |
         docker build . \
-          --file Dockerfile \
+          --file $DOCKERFILE_PATH \
           --tag $DOCKERHUB_USERNAME/$IMAGE_NAME:latest \
           --tag $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG
     
