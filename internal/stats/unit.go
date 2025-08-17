@@ -21,7 +21,7 @@ const (
 	maxDomains = 100
 
 	// maxClients is the max number of top clients to return.
-	maxClients = 500
+	maxClients = 600
 
 	// maxUpstreams is the max number of top upstreams to return.
 	maxUpstreams = 100
