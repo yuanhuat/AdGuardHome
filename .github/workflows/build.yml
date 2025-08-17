@@ -5,6 +5,8 @@ env:
   NODE_VERSION: '20'
   # 添加Docker镜像相关环境变量
   DOCKER_REPO: 'yuanhu66/adgh'
+  # 明确构建时使用的临时标签
+  BUILD_TAG: 'build-${{ github.sha }}'
 
 on:
   push:
@@ -103,7 +105,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
     - name: Run snapshot build
-      run: make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release build-docker
+      run: |
+        # 明确指定构建镜像的标签
+        make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" \
+          DOCKER_TAG=${{ env.BUILD_TAG }} \
+          build-release build-docker
+    - name: List Docker images
+      run: docker images
+      # 查看构建出的镜像，用于调试
     
     # 添加DockerHub登录步骤
     - name: Login to DockerHub
@@ -121,8 +130,17 @@ jobs:
           IMAGE_TAG=${GITHUB_REF#refs/tags/}
         fi
         
-        # 标记镜像
-        docker tag ${{ env.DOCKER_REPO }}:latest ${{ env.DOCKER_REPO }}:$IMAGE_TAG
+        # 检查构建的镜像是否存在
+        if ! docker images | grep -q "${{ env.DOCKER_REPO }}:${{ env.BUILD_TAG }}"; then
+          echo "Error: Image ${{ env.DOCKER_REPO }}:${{ env.BUILD_TAG }} not found"
+          exit 1
+        fi
+        
+        # 标记镜像为latest
+        docker tag ${{ env.DOCKER_REPO }}:${{ env.BUILD_TAG }} ${{ env.DOCKER_REPO }}:latest
+        
+        # 标记镜像为当前版本/提交哈希
+        docker tag ${{ env.DOCKER_REPO }}:${{ env.BUILD_TAG }} ${{ env.DOCKER_REPO }}:$IMAGE_TAG
         
         # 推送镜像
         docker push ${{ env.DOCKER_REPO }}:latest
