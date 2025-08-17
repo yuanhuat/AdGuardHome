@@ -1,192 +1,133 @@
-# 工作流名称：构建（build）
-name: 'build'
+name: build
 
-# 环境变量定义
 env:
-  # Go语言版本
-  'GO_VERSION': '1.24.6'
-  # Node.js版本
-  'NODE_VERSION': '20'
-  # Docker仓库地址（需要替换为实际的DockerHub仓库）
-  'DOCKER_REPOSITORY': 'yuanhu66/adgh'
+  GO_VERSION: '1.24.6'
+  NODE_VERSION: '20'
 
-# 触发条件：当有代码推送到任何分支、推送标签（v开头）或有拉取请求时触发
 on:
-  'push':
-    'branches':
-    - '*'  # 所有分支
-    'tags':
-    - 'v*'  # 所有v开头的标签
-  'pull_request':  # 拉取请求
+  push:
+    branches:
+    - '*'
+    tags:
+    - 'v*'
+  pull_request:
 
-# 工作任务定义
 jobs:
-  # 测试任务：在不同操作系统上运行测试
-  'test':
-    # 运行的操作系统，由矩阵策略定义
-    'runs-on': '${{ matrix.os }}'
-    # 测试环境变量
-    'env':
-      'GO111MODULE': 'on'  # 启用Go模块
-      'GOPROXY': 'https://goproxy.cn'  # 使用国内Go代理加速依赖下载
-    # 测试策略
-    'strategy':
-      'fail-fast': false  # 不快速失败（一个环境失败不影响其他环境）
-      'matrix':
-        'os':  # 测试的操作系统矩阵
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      GO111MODULE: 'on'
+      GOPROXY: 'https://goproxy.cn'
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
         - 'ubuntu-latest'
         - 'macOS-latest'
         - 'windows-latest'
-    # 测试步骤
-    'steps':
-    - 'name': 'Checkout'  # 检出代码
-      'uses': 'actions/checkout@v2'  # 使用官方检出动作
-      'with':
-        'fetch-depth': 0  # 拉取所有历史提交，用于完整构建
-    
-    - 'name': 'Set up Go'  # 配置Go环境
-      'uses': 'actions/setup-go@v3'  # 使用官方Go配置动作
-      'with':
-        'go-version': '${{ env.GO_VERSION }}'  # 使用定义的Go版本
-    
-    - 'name': 'Set up Node'  # 配置Node.js环境
-      'uses': 'actions/setup-node@v1'  # 使用官方Node配置动作
-      'with':
-        'node-version': '${{ env.NODE_VERSION }}'  # 使用定义的Node版本
-    
-    - 'name': 'Set up Go modules cache'  # 配置Go模块缓存
-      'uses': 'actions/cache@v4'  # 使用官方缓存动作
-      'with':
-        'path': '~/go/pkg/mod'  # 缓存路径
-        'key': "${{ runner.os }}-go-${{ hashFiles('go.sum') }}"  # 缓存键，基于操作系统和依赖哈希
-        'restore-keys': '${{ runner.os }}-go-'  # 恢复缓存的备选键
-    
-    - 'name': 'Get npm cache directory'  # 获取npm缓存目录
-      'id': 'npm-cache'  # 步骤ID，用于后续引用
-      'run': 'echo "::set-output name=dir::$( npm config get cache )"'  # 输出npm缓存目录
-    
-    - 'name': 'Set up npm cache'  # 配置npm缓存
-      'uses': 'actions/cache@v4'  # 使用官方缓存动作
-      'with':
-        'path': '${{ steps.npm-cache.outputs.dir }}'  # 使用上一步获取的缓存目录
-        'key': "${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}"  # 缓存键，基于操作系统和依赖哈希
-        'restore-keys': '${{ runner.os }}-node-'  # 恢复缓存的备选键
-    
-    - 'name': 'Run tests'  # 运行测试
-      'shell': 'bash'  # 使用bash shell
-      'run': 'make VERBOSE=1 deps test go-bench go-fuzz'  # 执行make命令运行依赖安装、测试、基准测试和模糊测试
-    
-    - 'name': 'Upload coverage'  # 上传测试覆盖率报告
-      'uses': 'codecov/codecov-action@v1'  # 使用codecov动作
-      'if': "success() && matrix.os == 'ubuntu-latest'"  # 仅在Ubuntu环境测试成功时执行
-      'with':
-        'token': '${{ secrets.CODECOV_TOKEN }}'  # Codecov令牌（存储在GitHub Secrets中）
-        'file': './coverage.txt'  # 覆盖率报告文件路径
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - name: Set up Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - name: Set up Go modules cache
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-go-
+    - name: Get npm cache directory
+      id: npm-cache
+      run: echo "::set-output name=dir::$( npm config get cache )"
+    - name: Set up npm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.npm-cache.outputs.dir }}
+        key: ${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-
+    - name: Run tests
+      shell: bash
+      run: make VERBOSE=1 deps test go-bench go-fuzz
+    - name: Upload coverage
+      uses: codecov/codecov-action@v1
+      if: success() && matrix.os == 'ubuntu-latest'
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.txt
 
-  # 构建发布任务：在Ubuntu上构建发布版本
-  'build-release':
-    'runs-on': 'ubuntu-latest'  # 仅在Ubuntu最新版本上运行
-    'needs': 'test'  # 依赖test任务，test成功后才运行
-    'steps':
-    - 'name': 'Checkout'  # 检出代码
-      'uses': 'actions/checkout@v2'
-      'with':
-        'fetch-depth': 0  # 拉取完整历史
+  build-release:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - name: Set up Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - name: Set up Go modules cache
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-go-
+    - name: Get npm cache directory
+      id: npm-cache
+      run: echo "::set-output name=dir::$(npm config get cache)"
+    - name: Set up npm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.npm-cache.outputs.dir }}
+        key: ${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-
+    - name: Set up Snapcraft
+      run: sudo snap install snapcraft --classic
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Run snapshot build
+      # Set a custom version string, since the checkout@v2 action does not seem
+      # to know about the master branch, while the version script uses it to
+      # count the number of commits within the branch.
+      run: make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release build-docker
     
-    - 'name': 'Set up Go'  # 配置Go环境（与test任务相同）
-      'uses': 'actions/setup-go@v3'
-      'with':
-        'go-version': '${{ env.GO_VERSION }}'
-    
-    - 'name': 'Set up Node'  # 配置Node环境（与test任务相同）
-      'uses': 'actions/setup-node@v1'
-      'with':
-        'node-version': '${{ env.NODE_VERSION }}'
-    
-    - 'name': 'Set up Go modules cache'  # 配置Go缓存（与test任务相同）
-      'uses': 'actions/cache@v4'
-      'with':
-        'path': '~/go/pkg/mod'
-        'key': "${{ runner.os }}-go-${{ hashFiles('go.sum') }}"
-        'restore-keys': '${{ runner.os }}-go-'
-    
-    - 'name': 'Get npm cache directory'  # 获取npm缓存目录（与test任务相同）
-      'id': 'npm-cache'
-      'run': 'echo "::set-output name=dir::$(npm config get cache)"'
-    
-    - 'name': 'Set up npm cache'  # 配置npm缓存（与test任务相同）
-      'uses': 'actions/cache@v4'
-      'with':
-        'path': '${{ steps.npm-cache.outputs.dir }}'
-        'key': "${{ runner.os }}-node-${{ hashFiles('client/package-lock.json') }}"
-        'restore-keys': '${{ runner.os }}-node-'
-    
-    - 'name': 'Set up Snapcraft'  # 配置Snapcraft（用于构建Snap包）
-      'run': 'sudo snap install snapcraft --classic'  # 安装Snapcraft
-    
-    - 'name': 'Set up QEMU'  # 配置QEMU（用于多架构Docker构建）
-      'uses': 'docker/setup-qemu-action@v1'  # 使用Docker官方QEMU配置动作
-    
-    - 'name': 'Set up Docker Buildx'  # 配置Docker Buildx（增强的Docker构建工具）
-      'uses': 'docker/setup-buildx-action@v1'  # 使用Docker官方Buildx配置动作
-    
-    # 新增明确构建Docker镜像步骤，确保镜像先构建好
-    - 'name': 'Build Docker image explicitly'
-      'run': |
-        # 调用make build-docker构建镜像，也可直接用docker build命令，这里延续项目习惯用make
-        make build-docker
-        # 可选：查看构建出的镜像，确认名称
-        docker images | grep ${{ env.DOCKER_REPOSITORY }}
-    
-    - 'name': 'Run snapshot build'  # 运行快照构建（原步骤，可根据实际需求调整，若make build-docker已涵盖相关逻辑，也可简化）
-      # 传递 DOCKER_IMAGE_NAME 环境变量，让脚本使用你的 DOCKER_REPOSITORY
-      'env':
-        DOCKER_IMAGE_NAME: ${{ env.DOCKER_REPOSITORY }} 
-      'run': 'make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release'  # 执行make命令构建发布版本，build-docker已单独执行
-    
-    # 验证镜像是否生成（可选，用于调试）
-    - 'name': 'Check Docker images'
-      'run': docker images
-      'continue-on-error': true  # 即使失败也继续，不阻断流程
-    
-    # 登录DockerHub
-    - 'name': 'Login to DockerHub'
-      'uses': 'docker/login-action@v2'  # 使用Docker官方登录动作
-      'with':
-        'username': '${{ secrets.DOCKERHUB_USERNAME }}'  # DockerHub用户名（存储在GitHub Secrets中）
-        'password': '${{ secrets.DOCKERHUB_TOKEN }}'  # DockerHub令牌（存储在GitHub Secrets中）
-    
-    # 推送Docker镜像到DockerHub
-    - 'name': 'Push Docker image'
-      'run': |
-        # 为镜像打标签（提交SHA值标签）
-        docker tag ${{ env.DOCKER_REPOSITORY }}:latest ${{ env.DOCKER_REPOSITORY }}:${{ github.sha }}
-        
-        # 如果是标签推送，添加标签版本
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          TAG=${GITHUB_REF#refs/tags/}
-          docker tag ${{ env.DOCKER_REPOSITORY }}:latest ${{ env.DOCKER_REPOSITORY }}:$TAG
-        fi
-        
-        # 推送镜像到DockerHub
-        docker push ${{ env.DOCKER_REPOSITORY }}:latest
-        docker push ${{ env.DOCKER_REPOSITORY }}:${{ github.sha }}
-        
-        # 如果是标签推送，推送标签版本
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          docker push ${{ env.DOCKER_REPOSITORY }}:$TAG
-        fi
+    # 新增: 上传构建产物到Artifacts
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts
+        # 根据实际构建输出目录调整路径
+        path: |
+          ./dist/*
+          ./bin/*
+          !./dist/*.log  # 排除日志文件(可选)
+        if-no-files-found: warn  # 如果没有找到文件，发出警告但不失败
+        retention-days: 30  # 保留30天
 
-  # 通知任务：发送构建结果通知到Slack
-  'notify':
-    'needs':  # 依赖build-release任务
-    - 'build-release'
-    # 触发条件：
-    # - 无论前面任务成功或失败都执行
-    # - 仓库所有者是AdguardTeam
-    # - 事件是推送或拉取请求来自同一仓库
-    'if':
-      ${{
+  notify:
+    needs:
+    - build-release
+    # Secrets are not passed to workflows that are triggered by a pull request
+    # from a fork.
+    #
+    # Use always() to signal to the runner that this job must run even if the
+    # previous ones failed.
+    if: ${{
         always() &&
         github.repository_owner == 'AdguardTeam' &&
         (
@@ -194,16 +135,15 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         )
       }}
-    'runs-on': 'ubuntu-latest'  # 在Ubuntu上运行
-    'steps':
-    - 'name': 'Conclusion'  # 获取工作流结论（成功/失败等）
-      'uses': 'technote-space/workflow-conclusion-action@v1'  # 使用工作流结论动作
-    
-    - 'name': 'Send Slack notif'  # 发送Slack通知
-      'uses': '8398a7/action-slack@v3'  # 使用Slack通知动作
-      'with':
-        'status': '${{ env.WORKFLOW_CONCLUSION }}'  # 通知状态（来自上一步）
-        'fields': 'repo, message, commit, author, workflow'  # 通知包含的字段
-      'env':
-        'GITHUB_TOKEN': '${{ secrets.GITHUB_TOKEN }}'  # GitHub令牌
-        'SLACK_WEBHOOK_URL': '${{ secrets.SLACK_WEBHOOK_URL }}'  # Slack Webhook URL（存储在GitHub Secrets中）
+    runs-on: ubuntu-latest
+    steps:
+    - name: Conclusion
+      uses: technote-space/workflow-conclusion-action@v1
+    - name: Send Slack notif
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ env.WORKFLOW_CONCLUSION }}
+        fields: repo, message, commit, author, workflow
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
