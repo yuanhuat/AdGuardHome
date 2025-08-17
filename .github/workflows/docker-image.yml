@@ -1,0 +1,40 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # 定义镜像名称相关变量
+      DOCKERHUB_USERNAME: your-dockerhub-username
+      IMAGE_NAME: your-image-name
+      # 生成基于时间戳的唯一标签
+      IMAGE_TAG: ${{ github.sha }}-${{ github.run_number }}
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build the Docker image
+      run: |
+        docker build . \
+          --file Dockerfile \
+          --tag $DOCKERHUB_USERNAME/$IMAGE_NAME:latest \
+          --tag $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG
+    
+    - name: Login to DockerHub
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Push the Docker image
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: |
+        docker push $DOCKERHUB_USERNAME/$IMAGE_NAME:latest
+        docker push $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG
