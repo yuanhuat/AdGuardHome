@@ -7,8 +7,8 @@ env:
   'GO_VERSION': '1.24.6'
   # Node.js版本
   'NODE_VERSION': '20'
-  # Docker仓库地址（与脚本默认的docker_image_name保持一致）
-  'DOCKER_REPOSITORY': 'adguardhome-dev'
+  # Docker仓库地址（需要替换为实际的DockerHub仓库）
+  'DOCKER_REPOSITORY': 'yuanhu66/adgh'
 
 # 触发条件：当有代码推送到任何分支、推送标签（v开头）或有拉取请求时触发
 on:
@@ -130,10 +130,21 @@ jobs:
     - 'name': 'Set up Docker Buildx'  # 配置Docker Buildx（增强的Docker构建工具）
       'uses': 'docker/setup-buildx-action@v1'  # 使用Docker官方Buildx配置动作
     
-    - 'name': 'Run snapshot build'  # 运行快照构建
-      'run': 'make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release build-docker'  # 执行make命令构建发布版本和Docker镜像
+    # 新增明确构建Docker镜像步骤，确保镜像先构建好
+    - 'name': 'Build Docker image explicitly'
+      'run': |
+        # 调用make build-docker构建镜像，也可直接用docker build命令，这里延续项目习惯用make
+        make build-docker
+        # 可选：查看构建出的镜像，确认名称
+        docker images | grep ${{ env.DOCKER_REPOSITORY }}
     
-    # 验证镜像是否生成（用于调试）
+    - 'name': 'Run snapshot build'  # 运行快照构建（原步骤，可根据实际需求调整，若make build-docker已涵盖相关逻辑，也可简化）
+      # 传递 DOCKER_IMAGE_NAME 环境变量，让脚本使用你的 DOCKER_REPOSITORY
+      'env':
+        DOCKER_IMAGE_NAME: ${{ env.DOCKER_REPOSITORY }} 
+      'run': 'make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release'  # 执行make命令构建发布版本，build-docker已单独执行
+    
+    # 验证镜像是否生成（可选，用于调试）
     - 'name': 'Check Docker images'
       'run': docker images
       'continue-on-error': true  # 即使失败也继续，不阻断流程
