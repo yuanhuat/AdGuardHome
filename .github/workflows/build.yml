@@ -7,8 +7,8 @@ env:
   'GO_VERSION': '1.24.6'
   # Node.js版本
   'NODE_VERSION': '20'
-  # Docker仓库地址（需要替换为实际的DockerHub仓库）
-  'DOCKER_REPOSITORY': 'yuanhu66/adgh'
+  # Docker仓库地址（与脚本默认的docker_image_name保持一致）
+  'DOCKER_REPOSITORY': 'adguardhome-dev'
 
 # 触发条件：当有代码推送到任何分支、推送标签（v开头）或有拉取请求时触发
 on:
@@ -131,12 +131,9 @@ jobs:
       'uses': 'docker/setup-buildx-action@v1'  # 使用Docker官方Buildx配置动作
     
     - 'name': 'Run snapshot build'  # 运行快照构建
-      # 传递 DOCKER_IMAGE_NAME 环境变量，让脚本使用你的 DOCKER_REPOSITORY
-      'env':
-        DOCKER_IMAGE_NAME: ${{ env.DOCKER_REPOSITORY }} 
       'run': 'make SIGN=0 VERBOSE=1 VERSION="v0.0.0-github" build-release build-docker'  # 执行make命令构建发布版本和Docker镜像
     
-    # 验证镜像是否生成（可选，用于调试）
+    # 验证镜像是否生成（用于调试）
     - 'name': 'Check Docker images'
       'run': docker images
       'continue-on-error': true  # 即使失败也继续，不阻断流程
